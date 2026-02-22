@@ -31,21 +31,17 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // العودة للثيم العادي بعد انتهاء التحميل الأولي للنظام
+        setTheme(R.style.Theme_AppCompat_Light_NoActionBar);
+        
         super.onCreate(savedInstanceState);
         
-        // تحسين أداء الرسوميات
+        // تفعيل التسريع العتادي
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                 WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
                 
         setContentView(R.layout.activity_main);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-            if (nightModeFlags != Configuration.UI_MODE_NIGHT_YES) {
-                getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-            }
-        }
 
         webView = findViewById(R.id.webview);
         swipe = findViewById(R.id.swipe);
@@ -53,17 +49,12 @@ public class MainActivity extends AppCompatActivity {
         fileUploadHelper = new FileUploadHelper(this);
 
         WebSettings ws = webView.getSettings();
-        
-        // 🔥 إعدادات السرعة القصوى
         ws.setJavaScriptEnabled(true);
-        ws.setDomStorageEnabled(true); // تخزين البيانات محلياً لسرعة الفتح لاحقاً
-        ws.setCacheMode(WebSettings.LOAD_DEFAULT); // تفعيل الكاش
+        ws.setDomStorageEnabled(true);
+        ws.setCacheMode(WebSettings.LOAD_DEFAULT);
         ws.setAllowFileAccess(true);
         ws.setDatabaseEnabled(true);
-        
-        // تحسين تحميل الصور والميديا
         ws.setLoadsImagesAutomatically(true);
-        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         ws.setMediaPlaybackRequiresUserGesture(false);
 
         CookieManager.getInstance().setAcceptCookie(true);
@@ -71,10 +62,15 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
+            public void onPageCommitVisible(WebView view, String url) {
+                // إخفاء الشعار فور بدء ظهور محتوى الموقع (أسرع من onPageFinished)
+                splashLogo.setVisibility(View.GONE);
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 splashLogo.setVisibility(View.GONE);
                 swipe.setRefreshing(false);
-                swipe.setEnabled(!(url != null && url.contains("/reels/")));
             }
 
             @Override
@@ -91,16 +87,15 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
+            public void onProgressChanged(WebView view, int newProgress) {
+                if (newProgress > 60) { // إخفاء الشعار مبكراً جداً بمجرد وصول البيانات
+                    splashLogo.setVisibility(View.GONE);
+                }
+            }
+
+            @Override
             public boolean onShowFileChooser(WebView webView, android.webkit.ValueCallback<android.net.Uri[]> callback, FileChooserParams params) {
                 return fileUploadHelper.handleFileChooser(callback, params);
-            }
-        });
-
-        swipe.setOnRefreshListener(() -> {
-            if (webView.getUrl() != null && webView.getUrl().contains("/reels/")) {
-                swipe.setRefreshing(false);
-            } else {
-                webView.reload();
             }
         });
 
