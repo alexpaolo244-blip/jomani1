@@ -17,13 +17,9 @@ android {
 
     buildTypes {
         release {
-            // تفعيل ضغط الكود وتقليل الحجم لزيادة السرعة
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-        debug {
-            minifyEnabled false
         }
     }
 
