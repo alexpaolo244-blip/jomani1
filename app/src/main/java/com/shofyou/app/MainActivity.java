@@ -5,12 +5,11 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.CookieManager;
-import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -26,20 +25,21 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private SwipeRefreshLayout swipe;
-    private FileUploadHelper fileUploadHelper; // استخدام الهيلبر المخصص
-
+    private FileUploadHelper fileUploadHelper;
     private final String HOME_URL = "https://shofyou.com";
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // تحسين أداء الرسوميات
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+                
         setContentView(R.layout.activity_main);
-
-        // إعداد الهيلبر للتعامل مع الملفات
-        fileUploadHelper = new FileUploadHelper(this);
-
         getWindow().setStatusBarColor(Color.TRANSPARENT);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
             if (nightModeFlags != Configuration.UI_MODE_NIGHT_YES) {
@@ -50,11 +50,20 @@ public class MainActivity extends AppCompatActivity {
         webView = findViewById(R.id.webview);
         swipe = findViewById(R.id.swipe);
         ImageView splashLogo = findViewById(R.id.splashLogo);
+        fileUploadHelper = new FileUploadHelper(this);
 
         WebSettings ws = webView.getSettings();
+        
+        // 🔥 إعدادات السرعة القصوى
         ws.setJavaScriptEnabled(true);
-        ws.setDomStorageEnabled(true);
+        ws.setDomStorageEnabled(true); // تخزين البيانات محلياً لسرعة الفتح لاحقاً
+        ws.setCacheMode(WebSettings.LOAD_DEFAULT); // تفعيل الكاش
         ws.setAllowFileAccess(true);
+        ws.setDatabaseEnabled(true);
+        
+        // تحسين تحميل الصور والميديا
+        ws.setLoadsImagesAutomatically(true);
+        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         ws.setMediaPlaybackRequiresUserGesture(false);
 
         CookieManager.getInstance().setAcceptCookie(true);
@@ -65,11 +74,7 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 splashLogo.setVisibility(View.GONE);
                 swipe.setRefreshing(false);
-                if (url != null && url.contains("/reels/")) {
-                    swipe.setEnabled(false);
-                } else {
-                    swipe.setEnabled(true);
-                }
+                swipe.setEnabled(!(url != null && url.contains("/reels/")));
             }
 
             @Override
@@ -86,15 +91,13 @@ public class MainActivity extends AppCompatActivity {
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
-            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> callback, FileChooserParams params) {
-                // استدعاء الهيلبر لفتح المعرض مباشرة
+            public boolean onShowFileChooser(WebView webView, android.webkit.ValueCallback<android.net.Uri[]> callback, FileChooserParams params) {
                 return fileUploadHelper.handleFileChooser(callback, params);
             }
         });
 
         swipe.setOnRefreshListener(() -> {
-            String current = webView.getUrl();
-            if (current != null && current.contains("/reels/")) {
+            if (webView.getUrl() != null && webView.getUrl().contains("/reels/")) {
                 swipe.setRefreshing(false);
             } else {
                 webView.reload();
@@ -113,8 +116,7 @@ public class MainActivity extends AppCompatActivity {
                 else new AlertDialog.Builder(MainActivity.this)
                         .setMessage("Exit app?")
                         .setPositiveButton("Yes", (d, i) -> finish())
-                        .setNegativeButton("No", null)
-                        .show();
+                        .setNegativeButton("No", null).show();
             }
         });
     }
